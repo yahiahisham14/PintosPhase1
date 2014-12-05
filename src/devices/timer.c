@@ -91,6 +91,10 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
+  // Discard inconvient ticks(0 or -ve)
+  if (ticks<=0)
+    return;
+
   ASSERT (intr_get_level () == INTR_ON);
  // assign requested sleep time to current thread
  thread_current()->sleep_ticks = ticks;
