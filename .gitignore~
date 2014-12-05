@@ -1,2 +1,6 @@
 /src/utils/*
-src/threads/Make.vars
+<<<<<<< HEAD
+/src/threads/Make.vars
+=======
+
+>>>>>>> 600a3fc033d0a881efc51e07ce7e703a10e1f634
