@@ -91,19 +91,16 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  
-  thread_current()->sleep_ticks= ticks;
-
-  //disable thread interrupts to allow thread blocking.
-  enum intr_level old_level = intr_disable();
-
-  //block current thread.
-  thread_block();
-
-  intr_set_level(old_level);
+ // assign requested sleep time to current thread
+ thread_current()->sleep_ticks = ticks;
+ // disable interrupts to allow thread blocking
+ enum intr_level old_level = intr_disable();
+ // block current thread
+ thread_block();
+ /* set old interrupt level which was used before the current thread was blocked
+ to ensure that no other logic crashes */
+ intr_set_level(old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -183,6 +180,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
+  // Check each thread with wake_threads() after each tick. It is assumed that
+  // interrupts are disabled  because timer_interrupt() is an interrupt handler
   thread_foreach(wake_threads ,0);
 }
 
@@ -268,14 +267,22 @@ sleep_ticks has reached 0 or not by decrementing it. If it reached
 static void
 wake_threads(struct thread *t, void *aux){
   if ( t->status == THREAD_BLOCKED){
-    t->sleep_ticks--;
+    
 
     if(t->sleep_ticks > 0){
+
+      t->sleep_ticks--;
+
       if( t->sleep_ticks == 0 ){
+
         thread_unblock(t);
+
       }
+
     }
+
   }
+  
 }
 
 
