@@ -19,8 +19,6 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
-/* ADDED List contatining sleeping threads*/
-
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -41,7 +39,6 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -94,26 +91,18 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-<<<<<<< HEAD
+
   // Discard inconvient ticks(0 or -ve)
   if (ticks<=0)
     return;
-=======
-  if( ticks <= 0 ){
-    return;
-  }
->>>>>>> 226f6d78db198b0b238d7e9b597ff718e142201c
 
   ASSERT (intr_get_level () == INTR_ON);
  // assign requested sleep time to current thread
-  thread_current()->sleep_ticks = ticks;
- 
+ thread_current()->sleep_ticks = ticks;
  // disable interrupts to allow thread blocking
  enum intr_level old_level = intr_disable();
  // block current thread
- 
  thread_block();
- 
  /* set old interrupt level which was used before the current thread was blocked
  to ensure that no other logic crashes */
  intr_set_level(old_level);
@@ -198,9 +187,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   // Check each thread with wake_threads() after each tick. It is assumed that
   // interrupts are disabled  because timer_interrupt() is an interrupt handler
-  //thread_foreach(wake_threads ,0);
-  
-
+  thread_foreach(wake_threads ,0);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -285,9 +272,10 @@ sleep_ticks has reached 0 or not by decrementing it. If it reached
 static void
 wake_threads(struct thread *t, void *aux){
   if ( t->status == THREAD_BLOCKED){
-    printf("%d\n",t->priority );
+    
+
     if(t->sleep_ticks > 0){
-      
+
       t->sleep_ticks--;
 
       if( t->sleep_ticks == 0 ){

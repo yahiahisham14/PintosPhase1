@@ -70,6 +70,11 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+//-------------------------------------_ADDED FUNCTION---------------------------------------------
+static void is_added_higher(struct thread *t);
+static bool compare_priority(const struct list_elem *prev ,
+      const struct list_elem *next ,void *aux UNUSED);
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -135,8 +140,17 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= TIME_SLICE){
     intr_yield_on_return ();
+
+    // Fetch the head of the Ready list
+    struct list_elem head_element = ready_list.head;
+    struct thread *head_thread;
+    head_thread = list_entry(&head_element, struct thread, elem); 
+
+    // Check if the current running equal --> round robin
+    is_added_higher(head_thread);
+  }
 }
 
 /* Prints thread statistics. */
@@ -209,6 +223,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+
   return tid;
 }
 
@@ -245,8 +260,13 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem , compare_priority ,NULL);
   t->status = THREAD_READY;
+
+  // Check if the unblocked thread has higher priority than running.
+  // If true then call yield method.
+  is_added_higher(t);
+
   intr_set_level (old_level);
 }
 
@@ -316,7 +336,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem , compare_priority,NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -343,7 +363,24 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  
+  enum intr_level old_level = intr_disable();
+
   thread_current ()->priority = new_priority;
+
+  
+  struct list_elem head_element = ready_list.head;
+  struct thread *head_thread;
+
+  head_thread = list_entry(&head_element, struct thread, elem); 
+  
+  // Checks if the new priority of the running thread becomes 
+  // lower than the highest priority in the ready_list.
+  if(new_priority < head_thread->priority){
+    thread_yield();
+  }
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -469,7 +506,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  list_push_back (&all_list, &t->allelem);
+  list_insert_ordered (&all_list, &t->allelem , compare_priority,NULL);
+  // list_push_back(&all_list, &t->allelem);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -585,3 +623,49 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+
+//------------------------------------ADDED FUNCTIONS---------------------------------------------------
+
+/* Checks if the given thread has higher priority than current_thread.
+   If true then yield.
+ */
+static void
+is_added_higher(struct thread *t){
+  
+    struct thread *cur = thread_current();
+
+    if (cur != idle_thread){
+
+      if(t->priority >= cur->priority){
+        thread_yield();
+      }
+
+    }
+}
+  
+
+
+/*Define compare_priority to be the basis on which 
+the ready_list is sorted*/ 
+static bool 
+compare_priority(const struct list_elem *prev ,const struct list_elem *next ,void *aux UNUSED)
+{
+  // Two threads to get the elements 
+  struct thread *prev_thread;
+  struct thread *next_thread;
+
+  ASSERT (prev != NULL && next != NULL);
+
+  // Get the two threads from the sorted list 
+  // Previous denotes the newly add element.
+  prev_thread = list_entry(prev, struct thread, elem); 
+
+  next_thread = list_entry(next, struct thread, elem);
+
+  // Return true if the previous is greater than the next. 
+  return prev_thread->priority > next_thread->priority;
+}
+
+/*---------------------------------END ADDED------------------------------------*/

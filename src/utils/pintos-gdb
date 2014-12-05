@@ -1,4 +1,4 @@
-s#! /bin/sh
+#! /bin/sh
 
 # Path to GDB macros file.  Customize for your site.
 GDBMACROS=/home/yahya/pintos/src/misc/gdb-macros
