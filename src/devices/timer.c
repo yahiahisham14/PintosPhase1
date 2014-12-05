@@ -97,20 +97,26 @@ timer_sleep (int64_t ticks)
   if( ticks <= 0 ){
     return;
   }
-
   ASSERT (intr_get_level () == INTR_ON);
+  enum intr_level old_level = intr_disable();
+  int64_t start = timer_ticks();
+  if( timer_elapsed( start ) < ticks ){
+    
  // assign requested sleep time to current thread
-  thread_current()->sleep_ticks = ticks;
+  
  
  // disable interrupts to allow thread blocking
- enum intr_level old_level = intr_disable();
- // block current thread
  
+ // block current thread
+ thread_current()->sleep_ticks = ticks;
  thread_block();
  
  /* set old interrupt level which was used before the current thread was blocked
  to ensure that no other logic crashes */
- intr_set_level(old_level);
+ intr_set_level(old_level);  
+  }
+
+  
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -188,12 +194,15 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  thread_tick ();
+  
 
   // Check each thread with wake_threads() after each tick. It is assumed that
   // interrupts are disabled  because timer_interrupt() is an interrupt handler
-  //thread_foreach(wake_threads ,0);
-  
+  enum intr_level old_level = intr_disable();
+  thread_foreach(wake_threads ,0);
+  intr_set_level(old_level);
+
+  thread_tick ();
 
 }
 
@@ -279,21 +288,20 @@ sleep_ticks has reached 0 or not by decrementing it. If it reached
 static void
 wake_threads(struct thread *t, void *aux){
   if ( t->status == THREAD_BLOCKED){
-    printf("%d\n",t->priority );
+    
     if(t->sleep_ticks > 0){
       
       t->sleep_ticks--;
 
       if( t->sleep_ticks == 0 ){
-
+        
         thread_unblock(t);
-
+        
       }
 
     }
 
   }
-  
-}
+}//end mehtod.
 
 
