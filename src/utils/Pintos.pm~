@@ -6,9 +6,9 @@ our $LOADER_SIZE = 314;
 
 # Partition types.
 my (%role2type) = (KERNEL => 0x20,
-		   FILESYS => 0x21,
-		   SCRATCH => 0x22,
-		   SWAP => 0x23);
+       FILESYS => 0x21,
+       SCRATCH => 0x22,
+       SWAP => 0x23);
 my (%type2role) = reverse %role2type;
 
 # Order of roles within a given disk.
@@ -65,30 +65,30 @@ sub do_set_part {
 
     my ($p) = $parts{$role} = {};
     if ($source eq 'file') {
-	if (read_mbr ($arg)) {
-	    print STDERR "warning: $arg looks like a partitioned disk ";
-	    print STDERR "(did you want --$role-from=$arg or --disk=$arg?)\n"
-	}
+  if (read_mbr ($arg)) {
+      print STDERR "warning: $arg looks like a partitioned disk ";
+      print STDERR "(did you want --$role-from=$arg or --disk=$arg?)\n"
+  }
 
-	$p->{FILE} = $arg;
-	$p->{OFFSET} = 0;
-	$p->{BYTES} = -s $arg;
+  $p->{FILE} = $arg;
+  $p->{OFFSET} = 0;
+  $p->{BYTES} = -s $arg;
     } elsif ($source eq 'from') {
-	my (%pt) = read_partition_table ($arg);
-	my ($sp) = $pt{$role};
-	die "$arg: does not contain \L$role\E partition\n" if !defined $sp;
+  my (%pt) = read_partition_table ($arg);
+  my ($sp) = $pt{$role};
+  die "$arg: does not contain \L$role\E partition\n" if !defined $sp;
 
-	$p->{FILE} = $arg;
-	$p->{OFFSET} = $sp->{START} * 512;
-	$p->{BYTES} = $sp->{SECTORS} * 512;
+  $p->{FILE} = $arg;
+  $p->{OFFSET} = $sp->{START} * 512;
+  $p->{BYTES} = $sp->{SECTORS} * 512;
     } elsif ($source eq 'size') {
-	$arg =~ /^\d+(\.\d+)?|\.\d+$/ or die "$arg: not a valid size in MB\n";
+  $arg =~ /^\d+(\.\d+)?|\.\d+$/ or die "$arg: not a valid size in MB\n";
 
-	$p->{FILE} = "/dev/zero";
-	$p->{OFFSET} = 0;
-	$p->{BYTES} = ceil ($arg * 1024 * 1024);
+  $p->{FILE} = "/dev/zero";
+  $p->{OFFSET} = 0;
+  $p->{BYTES} = ceil ($arg * 1024 * 1024);
     } else {
-	die;
+  die;
     }
 }
 
@@ -100,12 +100,12 @@ sub do_set_part {
 sub set_geometry {
     local ($_) = $_[1];
     if ($_ eq 'zip') {
-	@geometry{'H', 'S'} = (64, 32);
+  @geometry{'H', 'S'} = (64, 32);
     } else {
-	@geometry{'H', 'S'} = /^(\d+)[,\s]+(\d+)$/
-	  or die "bad syntax for geometry\n";
-	$geometry{H} <= 255 or die "heads limited to 255\n";
-	$geometry{S} <= 63 or die "sectors per track limited to 63\n";
+  @geometry{'H', 'S'} = /^(\d+)[,\s]+(\d+)$/
+    or die "bad syntax for geometry\n";
+  $geometry{H} <= 255 or die "heads limited to 255\n";
+  $geometry{S} <= 63 or die "sectors per track limited to 63\n";
     }
 }
 
@@ -130,12 +130,12 @@ sub set_align {
 #
 # Normally at least one of the following is included:
 #   KERNEL, FILESYS, SCRATCH, SWAP => {input:
-#				       FILE => file to read,
+#              FILE => file to read,
 #                                      OFFSET => byte offset in file,
 #                                      BYTES => byte count from file,
 #
 #                                      output:
-#				       DISK => output disk file name,
+#              DISK => output disk file name,
 #                                      START => sector offset in DISK,
 #                                      SECTORS => sector count in DISK},
 #
@@ -150,18 +150,18 @@ sub assemble_disk {
 
     my (%geometry) = $args{GEOMETRY} || (H => 16, S => 63);
 
-    my ($align);	# Align partition start, end to cylinder boundary?
-    my ($pad);		# Pad end of disk out to cylinder boundary?
+    my ($align);  # Align partition start, end to cylinder boundary?
+    my ($pad);    # Pad end of disk out to cylinder boundary?
     if (!defined ($args{ALIGN}) || $args{ALIGN} eq 'bochs') {
-	$align = 0;
-	$pad = 1;
+  $align = 0;
+  $pad = 1;
     } elsif ($args{ALIGN} eq 'full') {
-	$align = 1;
-	$pad = 0;
+  $align = 1;
+  $pad = 0;
     } elsif ($args{ALIGN} eq 'none') {
-	$align = $pad = 0;
+  $align = $pad = 0;
     } else {
-	die;
+  die;
     }
 
     my ($format) = $args{FORMAT} || 'partitioned';
@@ -175,64 +175,64 @@ sub assemble_disk {
     # Calculate the disk size.
     my ($total_sectors) = 0;
     if ($format eq 'partitioned') {
-	$total_sectors += $align ? $geometry{S} : 1;
+  $total_sectors += $align ? $geometry{S} : 1;
     }
     for my $role (@role_order) {
-	my ($p) = $args{$role};
-	next if !defined $p;
+  my ($p) = $args{$role};
+  next if !defined $p;
 
-	die if $p->{DISK};
+  die if $p->{DISK};
 
-	my ($bytes) = $p->{BYTES};
-	my ($start) = $total_sectors;
-	my ($end) = $start + div_round_up ($bytes, 512);
-	$end = round_up ($end, cyl_sectors (%geometry)) if $align;
+  my ($bytes) = $p->{BYTES};
+  my ($start) = $total_sectors;
+  my ($end) = $start + div_round_up ($bytes, 512);
+  $end = round_up ($end, cyl_sectors (%geometry)) if $align;
 
-	$p->{DISK} = $args{DISK};
-	$p->{START} = $start;
-	$p->{SECTORS} = $end - $start;
-	$total_sectors = $end;
+  $p->{DISK} = $args{DISK};
+  $p->{START} = $start;
+  $p->{SECTORS} = $end - $start;
+  $total_sectors = $end;
     }
 
     # Write the disk.
     my ($disk_fn) = $args{DISK};
     my ($disk) = $args{HANDLE};
     if ($format eq 'partitioned') {
-	# Pack loader into MBR.
-	my ($loader) = $args{LOADER} || "\xcd\x18";
-	my ($mbr) = pack ("a$LOADER_SIZE", $loader);
+  # Pack loader into MBR.
+  my ($loader) = $args{LOADER} || "\xcd\x18";
+  my ($mbr) = pack ("a$LOADER_SIZE", $loader);
 
-	$mbr .= make_kernel_command_line (@{$args{ARGS}});
+  $mbr .= make_kernel_command_line (@{$args{ARGS}});
 
-	# Pack partition table into MBR.
-	$mbr .= make_partition_table (\%geometry, \%args);
+  # Pack partition table into MBR.
+  $mbr .= make_partition_table (\%geometry, \%args);
 
-	# Add signature to MBR.
-	$mbr .= pack ("v", 0xaa55);
+  # Add signature to MBR.
+  $mbr .= pack ("v", 0xaa55);
 
-	die if length ($mbr) != 512;
-	write_fully ($disk, $disk_fn, $mbr);
-	write_zeros ($disk, $disk_fn, 512 * ($geometry{S} - 1)) if $align;
+  die if length ($mbr) != 512;
+  write_fully ($disk, $disk_fn, $mbr);
+  write_zeros ($disk, $disk_fn, 512 * ($geometry{S} - 1)) if $align;
     }
     for my $role (@role_order) {
-	my ($p) = $args{$role};
-	next if !defined $p;
+  my ($p) = $args{$role};
+  next if !defined $p;
 
-	my ($source);
-	my ($fn) = $p->{FILE};
-	open ($source, '<', $fn) or die "$fn: open: $!\n";
-	if ($p->{OFFSET}) {
-	    sysseek ($source, $p->{OFFSET}, 0) == $p->{OFFSET}
-	      or die "$fn: seek: $!\n";
-	}
-	copy_file ($source, $fn, $disk, $disk_fn, $p->{BYTES});
-	close ($source) or die "$fn: close: $!\n";
+  my ($source);
+  my ($fn) = $p->{FILE};
+  open ($source, '<', $fn) or die "$fn: open: $!\n";
+  if ($p->{OFFSET}) {
+      sysseek ($source, $p->{OFFSET}, 0) == $p->{OFFSET}
+        or die "$fn: seek: $!\n";
+  }
+  copy_file ($source, $fn, $disk, $disk_fn, $p->{BYTES});
+  close ($source) or die "$fn: close: $!\n";
 
-	write_zeros ($disk, $disk_fn, $p->{SECTORS} * 512 - $p->{BYTES});
+  write_zeros ($disk, $disk_fn, $p->{SECTORS} * 512 - $p->{BYTES});
     }
     if ($pad) {
-	my ($pad_sectors) = round_up ($total_sectors, cyl_sectors (%geometry));
-	write_zeros ($disk, $disk_fn, ($pad_sectors - $total_sectors) * 512);
+  my ($pad_sectors) = round_up ($total_sectors, cyl_sectors (%geometry));
+  write_zeros ($disk, $disk_fn, ($pad_sectors - $total_sectors) * 512);
     }
     close ($disk) or die "$disk: close: $!\n";
 }
@@ -245,18 +245,18 @@ sub make_partition_table {
     my ($geometry, $partitions) = @_;
     my ($table) = '';
     for my $role (@role_order) {
-	defined (my $p = $partitions->{$role}) or next;
+  defined (my $p = $partitions->{$role}) or next;
 
-	my $end = $p->{START} + $p->{SECTORS} - 1;
-	my $bootable = $role eq 'KERNEL';
+  my $end = $p->{START} + $p->{SECTORS} - 1;
+  my $bootable = $role eq 'KERNEL';
 
-	$table .= pack ("C", $bootable ? 0x80 : 0);   # Bootable?
-	$table .= pack_chs ($p->{START}, $geometry);  # CHS of partition start
-	$table .= pack ("C", $role2type{$role});      # Partition type
-	$table .= pack_chs($end, $geometry);          # CHS of partition end
-	$table .= pack ("V", $p->{START});            # LBA of partition start
-	$table .= pack ("V", $p->{SECTORS});          # Length in sectors
-	die if length ($table) % 16;
+  $table .= pack ("C", $bootable ? 0x80 : 0);   # Bootable?
+  $table .= pack_chs ($p->{START}, $geometry);  # CHS of partition start
+  $table .= pack ("C", $role2type{$role});      # Partition type
+  $table .= pack_chs($end, $geometry);          # CHS of partition end
+  $table .= pack ("V", $p->{START});            # LBA of partition start
+  $table .= pack ("V", $p->{SECTORS});          # Length in sectors
+  die if length ($table) % 16;
     }
     return pack ("a64", $table);
 }
@@ -280,12 +280,12 @@ sub copy_file {
     my ($from_handle, $from_file_name, $to_handle, $to_file_name, $size) = @_;
 
     while ($size > 0) {
-	my ($chunk_size) = 4096;
-	$chunk_size = $size if $chunk_size > $size;
-	$size -= $chunk_size;
+  my ($chunk_size) = 4096;
+  $chunk_size = $size if $chunk_size > $size;
+  $size -= $chunk_size;
 
-	my ($data) = read_fully ($from_handle, $from_file_name, $chunk_size);
-	write_fully ($to_handle, $to_file_name, $data);
+  my ($data) = read_fully ($from_handle, $from_file_name, $chunk_size);
+  write_fully ($to_handle, $to_file_name, $data);
     }
 }
 
@@ -317,11 +317,11 @@ sub write_zeros {
     my ($handle, $file_name, $size) = @_;
 
     while ($size > 0) {
-	my ($chunk_size) = 4096;
-	$chunk_size = $size if $chunk_size > $size;
-	$size -= $chunk_size;
+  my ($chunk_size) = 4096;
+  $chunk_size = $size if $chunk_size > $size;
+  $size -= $chunk_size;
 
-	write_fully ($handle, $file_name, "\0" x $chunk_size);
+  write_fully ($handle, $file_name, "\0" x $chunk_size);
     }
 }
 
@@ -359,7 +359,7 @@ sub cyl_sectors {
 # Makes sure that the loader is a reasonable size.
 sub read_loader {
     my ($name) = @_;
-    $name = find_file ("home/yahya/pintos/src/threads/build/loader.bin") if !defined $name;
+    $name = find_file ("/home/Pintos/pintos/src/threads/build/loader.bin") if !defined $name;
     die "Cannot find loader\n" if !defined $name;
 
     my ($handle);
@@ -404,7 +404,7 @@ sub lba_to_chs {
     if ($cyl <= 1023) {
         return ($cyl, $head, $sect);
     } else {
-        return (1023, 254, 63);	## or should this be (1023, $hpc, $spt)?
+        return (1023, 254, 63); ## or should this be (1023, $hpc, $spt)?
     }
 }
 
@@ -417,11 +417,11 @@ sub read_mbr {
     my ($retval) = 0;
     open (FILE, '<', $file) or die "$file: open: $!\n";
     if (-s FILE == 0) {
-	die "$file: file has zero size\n";
+  die "$file: file has zero size\n";
     } elsif (-s FILE >= 512) {
-	my ($mbr);
-	sysread (FILE, $mbr, 512) == 512 or die "$file: read: $!\n";
-	$retval = $mbr if unpack ("v", substr ($mbr, 510)) == 0xaa55;
+  my ($mbr);
+  sysread (FILE, $mbr, 512) == 512 or die "$file: read: $!\n";
+  $retval = $mbr if unpack ("v", substr ($mbr, 510)) == 0xaa55;
     }
     close (FILE);
     return $retval;
@@ -435,23 +435,23 @@ sub interpret_partition_table {
     my ($mbr, $disk) = @_;
     my (%parts);
     for my $i (0...3) {
-	my ($bootable, $valid, $type, $lba_start, $lba_length)
-	  = unpack ("C X V C x3 V V", substr ($mbr, 446 + 16 * $i, 16));
-	next if !$valid;
+  my ($bootable, $valid, $type, $lba_start, $lba_length)
+    = unpack ("C X V C x3 V V", substr ($mbr, 446 + 16 * $i, 16));
+  next if !$valid;
 
-	(print STDERR "warning: invalid partition entry $i in $disk\n"),
-	  next if $bootable != 0 && $bootable != 0x80;
+  (print STDERR "warning: invalid partition entry $i in $disk\n"),
+    next if $bootable != 0 && $bootable != 0x80;
 
-	my ($role) = $type2role{$type};
-	(printf STDERR "warning: non-Pintos partition type 0x%02x in %s\n",
-	 $type, $disk),
-	  next if !defined $role;
+  my ($role) = $type2role{$type};
+  (printf STDERR "warning: non-Pintos partition type 0x%02x in %s\n",
+   $type, $disk),
+    next if !defined $role;
 
-	(print STDERR "warning: duplicate \L$role\E partition in $disk\n"),
-	  next if exists $parts{$role};
+  (print STDERR "warning: duplicate \L$role\E partition in $disk\n"),
+    next if exists $parts{$role};
 
-	$parts{$role} = {START => $lba_start,
-			 SECTORS => $lba_length};
+  $parts{$role} = {START => $lba_start,
+       SECTORS => $lba_length};
     }
     return %parts;
 }
@@ -483,7 +483,7 @@ sub read_partition_table {
 sub max {
     my ($max) = $_[0];
     foreach (@_[1..$#_]) {
-	$max = $_ if $_ > $max;
+  $max = $_ if $_ > $max;
     }
     return $max;
 }
