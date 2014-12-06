@@ -75,7 +75,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_sort(&sema->waiters ,( list_less_func *) compare_priority ,NULL);
+      //list_sort(&sema->waiters ,( list_less_func *) compare_priority ,NULL);
       list_insert_ordered (&sema->waiters, &thread_current ()->elem ,
                      ( list_less_func *) compare_priority ,NULL);
 
@@ -126,7 +126,7 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
 
   if (!list_empty (&sema->waiters)) {
-    list_sort(&sema->waiters ,( list_less_func *) compare_priority ,NULL);
+    //list_sort(&sema->waiters ,( list_less_func *) compare_priority ,NULL);
 
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
@@ -336,7 +336,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) {
-        list_sort(&cond->waiters ,( list_less_func *) compare_priority ,NULL);
+        //list_sort(&cond->waiters ,( list_less_func *) compare_priority ,NULL);
 
     sema_up (&list_entry (list_pop_front (&cond->waiters),struct semaphore_elem, elem)->semaphore);
   }

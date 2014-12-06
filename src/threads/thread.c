@@ -265,7 +265,8 @@ thread_unblock (struct thread *t)
 
   // Check if the unblocked thread has higher priority than running.
   // If true then call yield method.
-    intr_set_level (INTR_ON);
+    intr_set_level (old_level);
+    
   if(old_level == INTR_ON)
     thread_yield();
 
