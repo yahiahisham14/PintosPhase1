@@ -37,6 +37,9 @@
 static bool compare_priority(const struct list_elem *prev ,
       const struct list_elem *next ,void *aux UNUSED);
 
+static bool compare_priority2(const struct list_elem *prev ,
+      const struct list_elem *next ,void *aux UNUSED);
+
 
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
@@ -269,6 +272,7 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
+    struct thread *t;                    /* This holding thread. */
   };
 
 /* Initializes condition variable COND.  A condition variable
@@ -313,8 +317,9 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
+  waiter.t = thread_current();
 
-  list_insert_ordered (&cond->waiters, &waiter.elem, ( list_less_func* ) compare_priority ,NULL);  
+  list_insert_ordered (&cond->waiters, &waiter.elem, ( list_less_func* ) compare_priority2 ,NULL);  
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -363,6 +368,30 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 /*Define compare_priority to be the basis on which 
 the list is sorted*/ 
 static bool 
+compare_priority2(const struct list_elem *prev ,const struct list_elem *next ,void *aux UNUSED)
+{
+  // Two threads to get the elements 
+  struct semaphore_elem *prev_semaphore_elem;
+  struct semaphore_elem *next_semaphore_elem;
+
+  ASSERT (prev != NULL && next != NULL);
+
+  // Get the two threads from the sorted list 
+  // Previous denotes the newly add element.
+  prev_semaphore_elem = list_entry(prev, struct semaphore_elem, elem); 
+
+  next_semaphore_elem = list_entry(next, struct semaphore_elem, elem);
+
+  struct thread *prev_thread = prev_semaphore_elem->t;
+  struct thread *next_thread = next_semaphore_elem->t;
+  // Return true if the previous is greater than the next. 
+  return prev_thread->priority > next_thread->priority;
+}
+/*---------------------------------END ADDED------------------------------------*/
+
+/*Define compare_priority to be the basis on which 
+the list is sorted*/ 
+static bool 
 compare_priority(const struct list_elem *prev ,const struct list_elem *next ,void *aux UNUSED)
 {
   // Two threads to get the elements 
@@ -380,4 +409,5 @@ compare_priority(const struct list_elem *prev ,const struct list_elem *next ,voi
   // Return true if the previous is greater than the next. 
   return prev_thread->priority > next_thread->priority;
 }
+
 /*---------------------------------END ADDED------------------------------------*/
