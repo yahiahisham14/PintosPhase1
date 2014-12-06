@@ -648,7 +648,7 @@ is_added_higher(struct thread *t){
 
 
 /*Define compare_priority to be the basis on which 
-the ready_list is sorted*/ 
+the list is sorted*/ 
 static bool 
 compare_priority(const struct list_elem *prev ,const struct list_elem *next ,void *aux UNUSED)
 {
