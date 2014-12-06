@@ -265,9 +265,10 @@ thread_unblock (struct thread *t)
 
   // Check if the unblocked thread has higher priority than running.
   // If true then call yield method.
-  is_added_higher(t);
+    intr_set_level (INTR_ON);
+  if(old_level == INTR_ON)
+    thread_yield();
 
-  intr_set_level (old_level);
 }
 
 /* Returns the name of the running thread. */
@@ -376,11 +377,16 @@ thread_set_priority (int new_priority)
   
   // Checks if the new priority of the running thread becomes 
   // lower than the highest priority in the ready_list.
-  if(new_priority < head_thread->priority){
-    thread_yield();
-  }
 
   intr_set_level (old_level);
+  if(old_level== INTR_ON){
+    thread_yield();
+  }
+  //if(new_priority < head_thread->priority){
+    
+  //}
+
+  
 }
 
 /* Returns the current thread's priority. */
