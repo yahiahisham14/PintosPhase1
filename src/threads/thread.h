@@ -90,8 +90,17 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
-//-------------------------------------------ADDED-----------------------------------------------------
+/*-------------------------------------------ADDED-----------------------------------------------------*/
+
     int64_t sleep_ticks;                /*time to sleep in ticks. */
+
+    int nice;                           /*NICE property for each thread*/
+
+    int recent_cpu;                     /*Recent Cpu paramter for each thread
+                                          Will deal with it as a floating point all the time*/
+
+/*-------------------------------------------END ADDED--------------------------------------------------*/
+
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
