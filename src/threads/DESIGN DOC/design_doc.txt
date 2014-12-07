@@ -1,0 +1,412 @@
+ 	
+                         +-----------------+
+                         |      CS 140     |
+                         |  SAMPLE PROJECT |
+                         | DESIGN DOCUMENT |
+                         +-----------------+
+
+---- GROUP ----
+
+Omar Mahmoud Youssef <omar_2739@hotmail.com>
+Ahmed Youssry Abdelwahab <ahmedyoussry93@gmail.com>
+Yahia Hisham El-Sayegh <yahiahisham14@gmail.com>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for
+>> the TAs, or extra credit, please give them here.
+
+(This is a sample design document.)
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation,
+>> course text, and lecture notes.
+
+None.
+
+
+				Alarm Clock
+                                ===========
+
+---- DATA STRUCTURES ----
+
+>> Copy here the declaration of each new or changed `struct' or `struct'
+>> member, global or static variable, `typedef', or enumeration.
+>> Identify the purpose of each in 25 words or less.
+************************************************************************
+
+Added to struct thread:
+
+    int64_t sleep_ticks;                /*time to sleep in ticks. */
+
+
+
+
+
+---- ALGORITHMS ----
+
+>> Briefly describe what happens in a call to timer_sleep() ,including 
+>> the effects of the timer interrupt handler.
+***********************************************************************
+when calling time_sleep()  , first set the sleep_ticks in the running 
+thread to the given ticks. Then disable interrupts and block the current 
+thread. we disable interruptsto ensure that blocking the current thread 
+is not interruptedby any other thread. After that enable enterrupts again.
+************************************************************************
+
+
+>> Briefly describe how does the thread wake up again afterif finished 
+>> it's sleeping time.
+************************************************************************
+IN timer_interrupt() we loop over all the sleeping threadsby calling 
+thread_foreach with argument wake_threads:
+ "thread_foreach(wake_threads ,0);"
+ where wake_threads decrease sleep_ticks in the given thread and check 
+ if it becomes 0 then sleep this thread.
+*************************************************************************
+
+
+
+
+---- SYNCHRONIZATION ----
+
+>> How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+
+***************************************************************************
+We ensure that we disable interrupts before blocking the running thread 
+so that blocking the thread won't be interrupted before blocking the current
+running thread.
+****************************************************************************
+
+
+
+---- RATIONALE ----
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design ?
+***************************************************************************
+In this design we ensure that when blocking the current thread , it's not
+enterrupted . We also designed wake_threads so that it ignore the threads 
+where the sleep_ticks is less than zero. This means that the thread is not
+sleeping and therefore don't have to ba waked up .
+***************************************************************************
+
+
+
+
+
+				Priority Scheduling
+                                ===================
+
+---- DATA STRUCTURES ----
+
+>> Copy here the declaration of each new or changed `struct' or `struct'
+>> member, global or static variable, `typedef', or enumeration.
+>> Identify the purpose of each in 25 words or less.
+************************************************************************
+
+Added to struct thread:
+
+    struct list acquired_locks;              /*list of acquired locks */
+    struct lock *blocking_lock;              /*the lock which the thread is blocked on */
+
+Added to struct lock :
+
+    int original_priority;                   /* original_Priority*/
+    struct list_elem elem;                   /* List elem*/
+    struct semaphore acquire_semaphore;      /* semaphore for controlling aquire */
+
+
+Added Method :
+
+		/*Define compare_priority to be the basis on which the list is sorted*/ 
+
+		static bool 
+		compare_priority(const struct list_elem *prev ,const struct list_elem *next ,void *aux UNUSED)
+		{
+		  // Two threads to get the elements 
+		  struct thread *prev_thread;
+		  struct thread *next_thread;
+
+		  ASSERT (prev != NULL && next != NULL);
+
+		  // Get the two threads from the sorted list 
+		  // Previous denotes the newly add element.
+		  prev_thread = list_entry(prev, struct thread, elem); 
+
+		  next_thread = list_entry(next, struct thread, elem);
+
+		  // Return true if the previous is greater than the next. 
+		  return prev_thread->priority > next_thread->priority;
+		}
+
+
+---- ALGORITHMS ----
+
+>> How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?
+
+*****************************************************************
+For Semaphores:
+---------------
+When calling sema_down() if sema->value = 0 then block the thread 
+and then insert the thread  in the waiting list of the semaphore 
+by using method list_insert_ordered .By that we ensure that all the
+threads in the waiting list are ordered  so that when calling sema_up()
+and list_pop_front() from the waiting list , the thread that is poped has the highest
+priority and by that we ensure that the higher priority is awakened first.
+
+For condition variables:
+------------------------
+Obviously ,  a wait on a condition varialbe is implemented by a semaphore.
+The semaphore contains a sorted list of threads ordered by priorities.
+When method cond_signal () is called, the thread that has the highest 
+priority is poped from the waiters list of the semaphore.
+
+
+For Locks :
+-----------
+Lock is basically a semaphore with the value of 1. Therefore, the 
+lock data structure contains a semaphore and this semaphore have 
+a list of threads waiting for the next "sema_up". 
+Threads that reach the semaphore of the lock when the semaphore's 
+value is zero is added to the waiting list by using the function 
+list_insert_ordered() with the comparison function that compares 
+priorities of threads. Upon a "sema_up" the thread at the front of
+the list will be woken up by the function list_pop_front() and 
+then call thread_unblock(). 
+
+
+However , The waiting list  might not be sorted in case of donating
+priorities so to ensure that the list is sorted even after donation
+, we call method "list_sort()" before calling list_pop_front() . By this we 
+ensure that we sort again before poping and ensure that the sorting 
+is working in all cases. 
+*************************************************************************
+
+
+
+>> Describe the sequence of events when a call to lock_acquire() causes 
+>> a priority donation.  How is nested donation handled ?
+
+**********************************************************************
+when we call lock_aquire() first we call donate_proirity().
+In this method , if the lock holder is not null . That means that the lock
+is aquired by another thread . If the priority of the current thread is higher
+than the priority of the lock holder then donate this priority. Then loop untill
+the lock holder is not blocked on any lock . In this loop we ensure that the 
+priority is donated to all the threads in the chain. Every time is the loop 
+we check that the donated priority is higher than the proirity of the lock holder
+and if not break . This occurs recursively untill the method breaks as mentioned 
+above.
+*********************************************************************************
+
+
+>> Describe what happens when call lock_release()
+
+************************************************************************
+First , we release the lock from the lock. Then remove the lock from the 
+list of the of the aquired locks of the current thread. Then we update the
+priority of the current thread by following these steps:
+1) set the priority the original priority.
+2) loop through the list of aquired locks .
+3) for each lock  use method pop_head() which returns the highest priority
+   of the threads waiting for this lock
+4) get the highest donated_priority of among all of these locks 
+5) get the max of highest_donated_priority and original priority and then
+   set the priority to this value.
+
+
+---- SYNCHRONIZATION ----
+
+>> Describe what happens when call set_priority() if the thread is donated
+>> higher priority than the new priority ?
+
+***************************************************************************
+We ensure that we disable interrupts in the beging of the method so that 
+we ensure handling the race to method set_priority() . If there is no donated
+priority to the current thread then set the priority to the new value. If there
+is a donated value then , if the new_priority value is higher than the donated 
+value , set it to the new value. If the new_priority value is lower than the 
+donated priority then don't set the priority to the new value.
+****************************************************************************
+
+
+---- RATIONALE ----
+
+>> Why did you choose this design?  In what ways is it superior to
+>> another design ?
+
+***************************************************************************
+We chose this design because it ensure handling race conditions and for it's
+simplicity . In this design we ensure to disable interrupts before the 
+code lines which if enterrupted will cause problems and may cause the kernel 
+to panic.
+***************************************************************************
+
+
+
+ ADVANCED SCHEDULER
+              ==================
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+***************************************************************************
+*****
+static int load_avg;
+
+Global load average variable, which is a real number representation, that
+is updated every second.
+
+*****
+
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    int orig_priority;                  /* Priority that is originally set. */
+
+    int nice;                           /* nice value for MLFQS */
+    int recent_cpu;                     /* recent_cpu for MLFQS */
+
+    struct list acquired_locks;         /* locks that this thread has acquired. */
+    struct lock *blocking_lock;         /* lock that this thread has been blocked by */
+
+    struct list_elem allelem;           /* List element for all threads list. */
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+#endif
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  };
+
+int nice;
+
+Nice value of the thread ranging from -20 to 20.
+
+int recent_cpu;
+
+Recent CPU usage variable, which is a real number representation, updated
+each second.
+***************************************************************************
+
+---- ALGORITHMS ----
+
+>> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
+>> has a recent_cpu value of 0.  Fill in the table below showing the
+>> scheduling decision and the priority and recent_cpu values for each
+>> thread after each given number of timer ticks:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0      0   0   0  63  61  59	     A 
+ 4	    4   0	  0  62  61  59	     A	
+ 8	    8   0	  0  61  61  59	     B
+12	    8   4	  0  61  60  59	     A
+16     12   4	  0  60  60  59	     B
+20     12   8	  0  60  59  59	     A
+24     16   8	  0  59  59  59	     C
+28     16   8	  4  59  59  58	     B
+32     16  12	  4  59  58  58	     A
+36     20  12	  4  58  58  58	     C
+
+>> C3: Did any ambiguities in the scheduler specification make values
+>> in the table uncertain?  If so, what rule did you use to resolve
+>> them?  Does this match the behavior of your scheduler?
+
+***************************************************************************
+It is ambiguous if the recent_cpu value should be calculated at
+initialization or not. Right now recent_cpu is recalculated once every
+second. This is implemented by computing recent_cpu when
+(timer_ticks () % TIMER_FREQ == 0). So, it is possible that one of the 
+three threads be initialized at the moment when this condition is true. 
+Then recent_cpu of that thread is computed using the load average and its
+thread's nice value. For this scenario, if the timer interrupt occurred
+right after thread C was initialized, the above table changes like the
+following:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0      0   0   2  63  61  58	     A 
+ 4	    4   0	  2  62  61  58	     A	
+ 8	    8   0	  2  61  61  58	     B
+12	    8   4	  2  61  60  58	     A
+16     12   4	  2  60  60  58	     B
+20     12   8	  2  60  59  58	     A
+24     16   8	  2  59  59  58	     B
+28     16  12 	2  59  58  58	     A
+32     20  12	  2  58  58  58	     C
+36     20  12	  6  58  58  57	     B
+
+***************************************************************************
+
+
+---- RATIONALE ----
+
+>> C5: Briefly critique your design, pointing out advantages and
+>> disadvantages in your design choices.  If you were to have extra
+>> time to work on this part of the project, how might you choose to
+>> refine or improve your design?
+
+This design is considred to be simple as possible all is focused on
+a critical point in thread_ticks :
+
+.....Code.....
+
+// IN case of Advanced priority
+  if(thread_mlfqs){
+
+    // Check if a second passed , update all threads
+    if (timer_ticks() % TIMER_FREQ == 0){
+
+      /* Significant point in advanced schedueling where load average must be updated followed
+         by updating recent_cpu of all threads followed by updating priority of all threads */
+      
+      // Disable interrupt to avoid any change
+      enum intr_level old_level = intr_disable();
+
+      // Update system Load Average
+      update_load_average();
+
+      // Update recent_cpu for all threads
+      update_all_recent_cpu();
+
+      // Return to the previous intterupt level
+      intr_set_level (old_level);
+
+    }else{
+
+      // increase recent_cpu of the current thread by 1.
+      if (t != idle_thread){
+        t->recent_cpu = t->recent_cpu + (1*f);
+      }
+
+    }
+
+........
+It is seen here that all the logic is encapsulated in these lines which is very simple.
+
+The bad thing about the code is that it does not include Assertions in all threads' methods
+which is a bad thing cause ASSERT is very important for debugging.
+.............................................................................................................
+
+
+
+
