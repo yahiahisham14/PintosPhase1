@@ -442,6 +442,7 @@ setup_stack (void **esp, char* file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
+  //strlcpy (fn_copy, "/bin/ls -l foo bar", PGSIZE);
   strlcpy (fn_copy, "/bin/ls -l foo bar", PGSIZE);
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -467,8 +468,8 @@ setup_stack (void **esp, char* file_name)
               total_len += length;
               int i;
               for(i = 0 ; i < length ; i++){
-                *esp--;                
-                printf("\nHEREEEEEEEEEEAAAA: %s\n",token);
+                (*(int *)esp)--;
+                printf("\nHEREEEEEEEEEEAAAA: %s and esp: %x\n\n\n",token,*esp);
                 *(*((char **)esp)) = token[i];
               }
               
@@ -478,11 +479,11 @@ setup_stack (void **esp, char* file_name)
         
         // 2 - word align.
         while( (total_len % 4) != 0 ){
-            *esp--;
+            (*(int *)esp)--;
             *(*(uint8_t **)esp) =  (uint8_t) 0;
             total_len++;
         }
-
+        printf("\n\n %d and esp: %x\n\n\n",total_len,*esp);
         // 3 - put argv[4] ->0
         *esp-=4;
         *(*(char ***)esp) = (char*) 0;

@@ -3,13 +3,45 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "devices/shutdown.h"
+#include "threads/vaddr.h"
+//#include "lib/user/syscall.h"
+
+
+//typedef pid_t int;
+typedef int pid_t;
+#define PID_ERROR ((pid_t) -1)
 
 static void syscall_handler (struct intr_frame *);
 
+static void halt (void);
+static void exit (int status);
+static pid_t exec ( const char *cmd_line );
+static int wait (pid_t pid);
+static bool create (const char *file, unsigned initial_size);
+static bool remove (const char *file);
+static int open (const char *file);
+static int filesize (int fd);
+static int read (int fd, void *buffer, unsigned size);
+static int write (int fd, const void *buffer, unsigned size);
+static void seek (int fd, unsigned position);
+static unsigned tell (int fd);
+static void close (int fd);
+
+static struct lock sync_lock;
+
+static bool check(void *esp);
+static void 
+get_Args(void* esp , int args_count , char* arg_0, char * arg_1 , char * arg_2 );
+
 void
-syscall_init (void) 
+syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init ( &sync_lock );
 }
 
 /* Time line of the syscall_handler:
@@ -34,7 +66,7 @@ syscall_handler (struct intr_frame *f )
 	}
 
 	/* 3 - Fetch system call number */
-	int sys_call_number = (int) *(esp);
+	int sys_call_number = (int) (*(int *)esp);
 
 	//argument pointers.
 	char *arg_0;
@@ -61,7 +93,7 @@ syscall_handler (struct intr_frame *f )
 			exec(arg_0);
 
 			break;
-		case SYS_Wait:
+		case SYS_WAIT:
 
 			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
 			wait((pid_t)*arg_0);
@@ -94,13 +126,13 @@ syscall_handler (struct intr_frame *f )
 		case SYS_READ:
 
 			get_Args(esp  , 3 ,arg_0 ,arg_1 ,arg_2);
-			read ((int)*arg_0, (void) arg_1, (unsigned)*arg_1 );
+			read ((int)*arg_0,   (void *) arg_1, (unsigned)*arg_1 );
 
 			break;
 		case SYS_WRITE:
 
 			get_Args(esp  , 3 ,arg_0 ,arg_1 ,arg_2);
-			write ((int) *arg_0, (void) arg_1, (unsigned) *arg_2);
+			write ((int) *arg_0, (void *) arg_1, (unsigned) *arg_2);
 
 			break;
 		case SYS_SEEK:
@@ -126,6 +158,87 @@ syscall_handler (struct intr_frame *f )
 
 }
 
+static void
+halt (void){
+	shutdown_power_off ();
+}//end function
+
+static void
+exit (int status)
+{
+	thread_exit ();
+}//end function.
+
+static pid_t
+exec ( const char *cmd_line )
+{
+	lock_acquire ( &sync_lock);
+	pid_t id = (pid_t) process_execute ( cmd_line );
+	lock_release ( &sync_lock );
+	return id;
+}//end function
+
+static int
+wait (pid_t pid)
+{
+
+}//end function.
+
+static bool
+create (const char *file, unsigned initial_size)
+{
+
+}//end function.
+
+static bool
+remove (const char *file)
+{
+
+}//end function.
+
+static int
+open (const char *file){
+
+}//end function.
+
+static int
+filesize (int fd)
+{
+
+}//end function.
+
+static int
+read (int fd, void *buffer, unsigned size)
+{
+
+}//end function.
+
+static int 
+write (int fd, const void *buffer, unsigned size)
+{
+	if( fd == 1 ){
+		putbuf (buffer, size);
+	}
+}//end function.
+
+static void
+seek (int fd, unsigned position)
+{
+
+}//end function.
+
+static unsigned
+tell (int fd)
+{
+
+}//end function.
+
+static void 
+close (int fd)
+{
+
+}//end function.
+
 
 
 /*--------------------------------------------------ADDED METHODS----------------------------------*/
@@ -150,7 +263,7 @@ check(void *esp)
 	*/
 
 	// Get page directory of current thread
-	uint32_t * pd = active_pd();
+	uint32_t * pd = thread_current()->pagedir;
 
 	/* Second check that user pointer points below PHYS_BASE --> user virtual address */
 	if (!is_user_vaddr(esp))
@@ -167,8 +280,6 @@ check(void *esp)
 	return true;
 }
 
-
-
 /*get the needed arguments given the number of the 
 arguments needed */
 static void
@@ -176,22 +287,20 @@ get_Args(void* esp , int args_count , char* arg_0, char * arg_1 , char * arg_2 )
 
 	if(args_count>0)
 	{
-		arg_0 = (char*)*esp ;
+		arg_0 =  (char*) esp;
 		esp += 4;
 	}
 
 	if(args_count>1)
 	{
-		arg_1 = (char*)*esp ;
+		arg_1 = (char*) esp ;
 		esp += 4;
 	}
 
 	if(args_count>2)
 	{
-		arg2 = (char*)*esp ;
+		arg_2 = (char*) esp ;
 		esp += 4;
 	}
 
-}
-
-
+}//end function.
