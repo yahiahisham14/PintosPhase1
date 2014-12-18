@@ -88,26 +88,11 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-   
     struct list_elem allelem;           /* List element for all threads list. */
-
-    
 
 //-------------------------------------------ADDED-----------------------------------------------------
     int64_t sleep_ticks;                /*time to sleep in ticks. */
 
-    int original_priority;              /* original_Priority*/
-
-    struct list acquired_locks;
-    struct lock *blocking_lock;
-    
-    int nice;                           /*NICE property for each thread*/
- 
-    int recent_cpu;                     /*Recent Cpu paramter for each thread
-                                          Will deal with it as a floating point all the time*/
- 
-/*-------------------------------------------END ADDED--------------------------------------------------*/
-   
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 

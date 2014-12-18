@@ -88,6 +88,9 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  int i;
+  for(i=0 ; i<2000000000;i++){
+  }
   return -1;
 }
 
@@ -195,7 +198,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp , char * file_name);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -302,7 +305,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp , file_name))
     goto done;
 
   /* Start address. */
@@ -427,20 +430,90 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char* file_name) 
 {
-  uint8_t *kpage;
-  bool success = false;
 
+  
+  uint8_t *kpage;
+  
+  bool success = false;
+  // make copy of filename;
+  char *fn_copy;
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    return TID_ERROR;
+  strlcpy (fn_copy, "/bin/ls -l foo bar", PGSIZE);
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
+        {
+        // ADDED:
         *esp = PHYS_BASE;
-      else
+        char *token;
+        char *save_ptr;
+        int total_len = 0;
+        char * argv[25];
+        
+        int argc =0;
+        // split then put in stack:
+        // 1 - put the arguments in stack
+        for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
+             token = strtok_r (NULL, " ", &save_ptr)){
+          //printf("aaaa            HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\n");
+          printf("\n\n\n\nesp: %x\n\n\n\n\n", *esp );
+              int length= (int) strlen(token);
+              total_len += length;
+              int i;
+              for(i = 0 ; i < length ; i++){
+                *esp--;                
+                printf("\nHEREEEEEEEEEEAAAA: %s\n",token);
+                *(*((char **)esp)) = token[i];
+              }
+              
+              argv[argc] = (char*)*esp;  
+              argc++;      
+        }//end for token.        
+        
+        // 2 - word align.
+        while( (total_len % 4) != 0 ){
+            *esp--;
+            *(*(uint8_t **)esp) =  (uint8_t) 0;
+            total_len++;
+        }
+
+        // 3 - put argv[4] ->0
+        *esp-=4;
+        *(*(char ***)esp) = (char*) 0;
+
+        // 4 - put the addres of the arguments in the stack.
+        int i;
+        for( i = argc-1 ; i >= 0 ; i--){
+          *esp -= 4;
+          *(*(char ***)esp) = (char*) argv[i];
+        }
+
+        // 5 - put char** argv int the stack;
+        int argv_0;
+        argv_0 = (char *) *esp;
+        *esp -= 4;
+        *(*((char ***) esp)) = argv_0;
+
+        // 6- put argc
+        *esp -= 4;
+        *( *( (int **) esp ) ) = argc;
+
+        // 7 - put return address = 0
+        *esp -= 4;
+        *( *( (int **) esp ) ) = 0;
+
+        printf("%d\n", *esp);
+
+      }else
         palloc_free_page (kpage);
     }
+
   return success;
 }
 
