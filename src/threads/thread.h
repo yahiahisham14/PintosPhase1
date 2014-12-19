@@ -5,6 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 
+// Added
+#include "filesys/file.h"
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -95,6 +98,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    struct file_map* map[130];           /*map to map the file to fd*/
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -103,6 +107,15 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+  };
+
+////////////////////////////////////ADDED///////////////////////////////////////////////
+  /* File map to map every file to a different fd */
+  struct file_map 
+  {
+    // File
+    struct file * f ;
+    
   };
 
 /* If false (default), use round-robin scheduler.

@@ -55,21 +55,16 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f ) 
 {
-  //printf("\n\n\nHereeeeeeeeeee in syscall_handler.\n");
+  
 	/* 1 - Fetch Stack ptr */
 	void *esp = f->esp;
 
 	/* 2 - Validate the stack ptr */
-	bool ptr_valid = check(esp);
-
-	if (!ptr_valid){
-		// Call exit passing -1
-		exit(-1);
-	}
+	check(esp);
 
 	/* 3 - Fetch system call number */
 	int sys_call_number = (int) (*(int *)esp);
-	//printf("syscall Num :  %d %x\n", sys_call_number, esp);
+	
 
 	//argument pointers.
 	void *arg_0;
@@ -77,12 +72,9 @@ syscall_handler (struct intr_frame *f )
 	void *arg_2;
 
 	esp += 4;
-	ptr_valid = check(esp);
-	if (!ptr_valid){
-		// Call exit passing 0
-		exit(-1);
-	}
-
+	check(esp);
+	
+	
 	/* 4 - Call the appropriate system call method */
 	switch(sys_call_number){
 		case SYS_HALT:
@@ -125,7 +117,7 @@ syscall_handler (struct intr_frame *f )
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
 			f->eax = (uint32_t) open( (char *) arg_0);
-
+			
 			break;
 		case SYS_FILESIZE:
 
@@ -143,10 +135,6 @@ syscall_handler (struct intr_frame *f )
 		case SYS_WRITE:
 
 			get_Args(esp , 3 ,&arg_0 ,&arg_1 ,&arg_2);
-
-			//printf("\n Int: %d , const: %x , unsigned: %d \n", (int) arg_0 , 
-			//	(const void *) arg_1 , (unsigned) arg_2 );
-
 			f->eax = (uint32_t) write ( (int) arg_0, (const void *) arg_1, (unsigned) arg_2 );
 
 			break;
@@ -192,7 +180,6 @@ exit (int status)
 		i++;
 	}//end while
 	temp[i] = '\0';
-	//printf("\n\n Hereeeeeeeeeee in exit fileName: %s. , TEMP: %s. \n", fileName , temp );
 	printf("%s: exit(%d)\n",temp, status );
 	thread_exit ();
 }//end function.
@@ -246,8 +233,48 @@ remove (const char *file)
 
 static int
 open (const char *file){
-	printf("\n\nana hena ya john!!\n\n" );
-	//filesys_open(file);
+
+	// Check if name is null
+	if(file == NULL) 
+		return -1;
+
+	// Check if file name is in user address space
+	check(file);
+	
+	
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
+	
+	// Open file
+	struct file * opened_file = filesys_open (file);
+
+	// Release lock
+	lock_release ( &sync_lock );
+
+	if (opened_file == NULL){
+		// Return fd error
+		return -1;
+	}
+
+	struct thread* t = thread_current();
+	
+	int i;
+	//i starts at 2 because 0 and  are reserved.
+	for( i = 2 ; i < 130 ; i++){
+		
+		if(t->map[i] == NULL){
+
+			struct file_map* new_file_map = { opened_file };
+			t->map[i] = new_file_map;
+			ASSERT( t->map[i] != NULL );
+			//i is the value of fd.
+			return i;
+		}
+	}
+
+	//must not reached.
+	ASSERT(0);
+
 }//end function.
 
 static int
@@ -297,13 +324,13 @@ close (int fd)
 	1 - Check if the ptr is null
 	2 - Check that it's virtual address is not null and it's within user address space
 */
-static bool
+static void
 check(void *esp)
 {
 
 	/* First check if the stack ptr is null */
 	if (esp == NULL)
-		return false;
+		kill_process();
 
 	/* Second check that it has a valid mapping :
 		1 - get current thread page directory --> call pagedir:active_pd (void)
@@ -317,17 +344,16 @@ check(void *esp)
 
 	/* Second check that user pointer points below PHYS_BASE --> user virtual address */
 	if (!is_user_vaddr(esp))
-		return false;
+		kill_process();
 
 	// Get virtual address
 	void* potential_address = pagedir_get_page (pd, esp);
 
 	// Check if it's mapped to null
 	if (potential_address == NULL)
-		return false;
+		kill_process();
 	
 	/* All true */
-	return true;
 }
 
 /*get the needed arguments given the number of the 
@@ -338,34 +364,22 @@ get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_
 	if(args_count>0)
 	{
 		*arg_0 =   *(void **)esp;
-			//printf("hiiiiiiiii %d %x\n", *arg_0 , esp);
-
 		esp += 4;
-		bool ptr_valid = check(esp);
-		if (!ptr_valid){
-			// Call exit passing 0
-			exit(-1);
-		}
+		check(esp);
 	}
 
 	if(args_count>1)
 	{
 		*arg_1 = *(void **)esp;
-			//printf("%d %x\n", *arg_1, esp);
-
 		esp += 4;
-		bool ptr_valid = check(esp);
-		if (!ptr_valid){
-			// Call exit passing 0
-			exit(-1);
-		}
+		check(esp);
+		
 	}
 
 	if(args_count>2)
 	{
 		*arg_2 = *(void **)esp;
-			//printf("%d %x\n", *arg_2, esp);
-
+			
 	}
 
 }//end function.
