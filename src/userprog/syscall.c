@@ -225,13 +225,33 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
 
+	// Call file system create
+	bool created_succ = filesys_create (file, (off_t) initial_size);
+
+	// Release lock
+	lock_release ( &sync_lock );
+
+	return created_succ;
+	
 }//end function.
 
 static bool
 remove (const char *file)
 {
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
 
+	// Call file system create
+	bool deleted_succ = filesys_remove (file);
+
+	// Release lock
+	lock_release ( &sync_lock );
+
+	return deleted_succ;
+	
 }//end function.
 
 static int
