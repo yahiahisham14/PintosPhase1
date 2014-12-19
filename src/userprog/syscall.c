@@ -30,6 +30,7 @@ static int write (int fd, const void *buffer, unsigned size);
 static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 static void close (int fd);
+static void kill_process ();
 
 static struct lock sync_lock;
 
@@ -62,7 +63,7 @@ syscall_handler (struct intr_frame *f )
 
 	if (!ptr_valid){
 		// Call exit passing 0
-		exit(0);
+		exit(-1);
 	}
 
 	/* 3 - Fetch system call number */
@@ -78,23 +79,8 @@ syscall_handler (struct intr_frame *f )
 	ptr_valid = check(esp);
 	if (!ptr_valid){
 		// Call exit passing 0
-		exit(0);
+		exit(-1);
 	}
-
-	// sys_call_number = (int) (*(int *)esp);
-	 	//printf("syscall Num :  %d %x\n", sys_call_number, esp);
-
-	// esp += 4;
-
-	// sys_call_number = (int) (*(int *)esp);
-	// 	printf("%d %x\n", sys_call_number, esp);
-
-	// esp += 4;
-
-	// sys_call_number = (int) (*(int *)esp);
-	// 	printf("%d %x\n\n", sys_call_number, esp);
-
-	// esp += 4;
 
 	/* 4 - Call the appropriate system call method */
 	switch(sys_call_number){
@@ -180,6 +166,9 @@ syscall_handler (struct intr_frame *f )
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
 			close ( (int) arg_0 );
 
+			break;
+		default:
+			kill_process ();
 			break;
 	}
 	
@@ -353,7 +342,7 @@ get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_
 		bool ptr_valid = check(esp);
 		if (!ptr_valid){
 			// Call exit passing 0
-			exit(0);
+			exit(-1);
 		}
 	}
 
@@ -366,7 +355,7 @@ get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_
 		bool ptr_valid = check(esp);
 		if (!ptr_valid){
 			// Call exit passing 0
-			exit(0);
+			exit(-1);
 		}
 	}
 
@@ -378,3 +367,9 @@ get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_
 	}
 
 }//end function.
+
+static void
+kill_process(){
+	exit(-1);
+}//end function.
+
