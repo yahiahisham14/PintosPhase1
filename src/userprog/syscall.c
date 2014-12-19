@@ -35,7 +35,7 @@ static void kill_process ();
 
 static struct lock sync_lock;
 
-static bool check(void *esp);
+static void check(void *esp);
 static void 
 get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_2 );
 
@@ -73,7 +73,6 @@ syscall_handler (struct intr_frame *f )
 
 	esp += 4;
 	check(esp);
-	
 	
 	/* 4 - Call the appropriate system call method */
 	switch(sys_call_number){
@@ -128,7 +127,7 @@ syscall_handler (struct intr_frame *f )
 		case SYS_READ:
 
 			get_Args(esp  , 3 ,&arg_0 ,&arg_1 ,&arg_2);
-			
+
 			f->eax = (uint32_t) read ( (int)arg_0, (void *) arg_1, (unsigned) arg_2 );
 
 			break;
@@ -202,6 +201,9 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
+	// Check if file name is in user address space
+	check(file);
+
 	// Aquire lock for acessing file system
 	lock_acquire ( &sync_lock);
 
@@ -211,6 +213,7 @@ create (const char *file, unsigned initial_size)
 	// Release lock
 	lock_release ( &sync_lock );
 
+	//printf("%d\nBOOOOLEAAAAAAAAAAAAAAAAAAAAAAAN",created_succ );
 	return created_succ;
 	
 }//end function.
@@ -218,6 +221,9 @@ create (const char *file, unsigned initial_size)
 static bool
 remove (const char *file)
 {
+	// Check if file name is in user address space
+	check(file);
+
 	// Aquire lock for acessing file system
 	lock_acquire ( &sync_lock);
 
@@ -276,19 +282,68 @@ open (const char *file){
 	ASSERT(0);
 
 }//end function.
-
 static int
 filesize (int fd)
 {
+	// Check if file name is in user address space
+	check(&fd);
 
+	struct thread * t = thread_current();
+ 
+	if(t->map[fd] == NULL)
+		return -1;
+ 
+	struct file * f = t->map[fd];
+ 
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
+ 
+	int size = file_length(f);
+ 
+	// Release lock
+	lock_release ( &sync_lock );
+ 
+	return size;
+ 
 }//end function.
-
+ 
 static int
 read (int fd, void *buffer, unsigned size)
 {
+		// printf("1111111111111111111111111111111111111");
 
+	// Check if file name is in user address space
+	check(&fd);
+	check(buffer);
+
+//			printf("222222222222222222222222222222222222222222");
+
+
+	//fd =0 -> reads input from keyboard.
+	if(fd == 0){
+		return input_getc();
+	}
+ 
+	struct thread * t = thread_current();
+//	printf("asasddddddddddddddddddasd");
+ 
+	if(t->map[fd] == NULL)
+		kill_process();
+
+
+ 
+	struct file * f = t->map[fd];
+ 
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
+ 
+	int bytes_read = read(f , buffer ,size);
+ 
+	// Release lock
+	lock_release ( &sync_lock );
+ 
+	return bytes_read;
 }//end function.
-
 static int 
 write (int fd, const void *buffer, unsigned size)
 {
@@ -300,18 +355,81 @@ write (int fd, const void *buffer, unsigned size)
 static void
 seek (int fd, unsigned position)
 {
+	
+	// Check if file descriptor is in user address space
+	check(&fd);
 
+	// Check if position before the begining
+	if(position < 0)
+		kill_process();
+
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
+
+	// Now get the requested file
+	struct thread* t = thread_current();
+	
+	// Because index resembles the fd , Checks the fd place
+	if (t->map[fd] != NULL){
+		// File seek
+		file_seek (t->map[fd]->f, (off_t)position);
+	}else{
+		// The given fd is not 
+		kill_process();
+	}
+
+	// Release lock
+	lock_release ( &sync_lock );
+	
 }//end function.
 
 static unsigned
 tell (int fd)
 {
+	
+	// Check if file descriptor is in user address space
+	check(&fd);
+
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
+
+	// Now get the requested file
+	struct thread* t = thread_current();
+	
+	// Because index resembles the fd , Checks the fd place
+	if (t->map[fd] != NULL){
+		// File seek
+		unsigned to_return = (unsigned)file_tell (t->map[fd]->f);
+		// Release lock
+		lock_release ( &sync_lock );
+
+		return to_return;
+	}
+
+	// The given fd is not taken
+	kill_process();
+
 
 }//end function.
 
 static void 
 close (int fd)
 {
+	// Check if file descriptor is in user address space
+	check(&fd);
+
+	// Aquire lock for acessing file system
+	lock_acquire ( &sync_lock);
+
+	// Now get the requested file
+	struct thread* t = thread_current();
+
+	// Make the place indexed fd null
+	t->map[fd] = NULL;
+
+	// Release lock
+	lock_release ( &sync_lock );
+
 
 }//end function.
 
