@@ -35,7 +35,7 @@ static struct lock sync_lock;
 
 static bool check(void *esp);
 static void 
-get_Args(void* esp , int args_count , char* arg_0, char * arg_1 , char * arg_2 );
+get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_2 );
 
 void
 syscall_init (void)
@@ -53,7 +53,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f ) 
 {
-  
+  //printf("\n\n\nHereeeeeeeeeee in syscall_handler.\n");
 	/* 1 - Fetch Stack ptr */
 	void *esp = f->esp;
 
@@ -67,90 +67,118 @@ syscall_handler (struct intr_frame *f )
 
 	/* 3 - Fetch system call number */
 	int sys_call_number = (int) (*(int *)esp);
+	//printf("syscall Num :  %d %x\n", sys_call_number, esp);
 
 	//argument pointers.
-	char *arg_0;
-	char *arg_1;
-	char *arg_2;
+	void *arg_0;
+	void *arg_1;
+	void *arg_2;
+
+	esp += 4;
+	ptr_valid = check(esp);
+	if (!ptr_valid){
+		// Call exit passing 0
+		exit(0);
+	}
+
+	// sys_call_number = (int) (*(int *)esp);
+	 	//printf("syscall Num :  %d %x\n", sys_call_number, esp);
+
+	// esp += 4;
+
+	// sys_call_number = (int) (*(int *)esp);
+	// 	printf("%d %x\n", sys_call_number, esp);
+
+	// esp += 4;
+
+	// sys_call_number = (int) (*(int *)esp);
+	// 	printf("%d %x\n\n", sys_call_number, esp);
+
+	// esp += 4;
 
 	/* 4 - Call the appropriate system call method */
 	switch(sys_call_number){
 		case SYS_HALT:
 
-			get_Args(esp  , 0 ,arg_0 ,arg_1 ,arg_2);
+			get_Args(esp  , 0 ,&arg_0 ,&arg_1 ,&arg_2);
 			halt();
 
 			break;
 		case SYS_EXIT:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			exit((int) *arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			exit( (int) arg_0 );
 
 			break;
 		case SYS_EXEC:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			exec(arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			exec( (char *) arg_0);
 
 			break;
 		case SYS_WAIT:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			wait((pid_t)*arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			wait( (pid_t) arg_0);
 
 			break;
 		case SYS_CREATE:
 
-			get_Args(esp  , 2 ,arg_0 ,arg_1 ,arg_2);
-			create(arg_0,(unsigned)*arg_1);
+			get_Args(esp  , 2 ,&arg_0 ,&arg_1 ,&arg_2);
+			create( (char *) arg_0, (unsigned) arg_1);
 
 			break;		
 		case SYS_REMOVE:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			remove(arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			remove( (char *) arg_0);
 
 			break;
 		case SYS_OPEN:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			open(arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			open( (char *) arg_0);
 
 			break;
 		case SYS_FILESIZE:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			filesize((int)*arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			filesize( (int) arg_0 );
 
 			break;
 		case SYS_READ:
 
-			get_Args(esp  , 3 ,arg_0 ,arg_1 ,arg_2);
-			read ((int)*arg_0,   (void *) arg_1, (unsigned)*arg_1 );
+			get_Args(esp  , 3 ,&arg_0 ,&arg_1 ,&arg_2);
+			
+			read ( (int)arg_0, (void *) arg_1, (unsigned) arg_2 );
 
 			break;
 		case SYS_WRITE:
 
-			get_Args(esp  , 3 ,arg_0 ,arg_1 ,arg_2);
-			write ((int) *arg_0, (void *) arg_1, (unsigned) *arg_2);
+			get_Args(esp , 3 ,&arg_0 ,&arg_1 ,&arg_2);
+
+			//printf("\n Int: %d , const: %x , unsigned: %d \n", (int) arg_0 , 
+			//	(const void *) arg_1 , (unsigned) arg_2 );
+
+			write ( (int) arg_0, (const void *) arg_1, (unsigned) arg_2 );
 
 			break;
 		case SYS_SEEK:
 
-			get_Args(esp  , 2 ,arg_0 ,arg_1 ,arg_2);
-			seek ((int)*arg_0, (unsigned)arg_1);
+			get_Args(esp  , 2 ,&arg_0 ,&arg_1 ,&arg_2);
+			seek ( (int) arg_0, (unsigned)arg_1 );
 
 			break;
 		case SYS_TELL:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			tell ((int) *arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			tell ( (int) arg_0 ) ;
 
 			break;
 		case SYS_CLOSE:
 
-			get_Args(esp  , 1 ,arg_0 ,arg_1 ,arg_2);
-			close ((int) *arg_0);
+			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
+			close ( (int) arg_0 );
 
 			break;
 	}
@@ -166,6 +194,16 @@ halt (void){
 static void
 exit (int status)
 {
+	char* fileName = thread_current()->name;
+	char temp[20];
+	int i = 0;
+	while( fileName[i] != ' ' && fileName[i] != NULL ){
+		 temp[i] = fileName[i];
+		i++;
+	}//end while
+	temp[i] = '\0';
+	//printf("\n\n Hereeeeeeeeeee in exit fileName: %s. , TEMP: %s. \n", fileName , temp );
+	printf("%s: exit(%d)\n",temp, status );
 	thread_exit ();
 }//end function.
 
@@ -198,7 +236,7 @@ remove (const char *file)
 
 static int
 open (const char *file){
-
+	//filesys_open(file);
 }//end function.
 
 static int
@@ -241,7 +279,7 @@ close (int fd)
 
 
 
-/*--------------------------------------------------ADDED METHODS----------------------------------*/
+/*--------------------------------------ADDED METHODS----------------------------------*/
 
 
 /* This method used to validate the stack ptr by :
@@ -258,7 +296,8 @@ check(void *esp)
 
 	/* Second check that it has a valid mapping :
 		1 - get current thread page directory --> call pagedir:active_pd (void)
-		2 - get virtual address --> call pagedir:pagedir_get_page (uint32_t *pd, const void *uaddr)
+		2 - get virtual address --> call pagedir:pagedir_get_page 
+		(uint32_t *pd, const void *uaddr)
 		3 - check that the returned address is not null
 	*/
 
@@ -283,24 +322,39 @@ check(void *esp)
 /*get the needed arguments given the number of the 
 arguments needed */
 static void
-get_Args(void* esp , int args_count , char* arg_0, char * arg_1 , char * arg_2 ){
+get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_2 ){
 
 	if(args_count>0)
 	{
-		arg_0 =  (char*) esp;
+		*arg_0 =   *(void **)esp;
+			//printf("hiiiiiiiii %d %x\n", *arg_0 , esp);
+
 		esp += 4;
+		bool ptr_valid = check(esp);
+		if (!ptr_valid){
+			// Call exit passing 0
+			exit(0);
+		}
 	}
 
 	if(args_count>1)
 	{
-		arg_1 = (char*) esp ;
+		*arg_1 = *(void **)esp;
+			//printf("%d %x\n", *arg_1, esp);
+
 		esp += 4;
+		bool ptr_valid = check(esp);
+		if (!ptr_valid){
+			// Call exit passing 0
+			exit(0);
+		}
 	}
 
 	if(args_count>2)
 	{
-		arg_2 = (char*) esp ;
-		esp += 4;
+		*arg_2 = *(void **)esp;
+			//printf("%d %x\n", *arg_2, esp);
+
 	}
 
 }//end function.

@@ -211,6 +211,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
+
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
@@ -224,8 +225,27 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+
   /* Open executable file. */
-  file = filesys_open (file_name);
+  char temp[20];
+  int j = 0;
+
+   // make copy of filename;
+  char *fn_copy;
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    return TID_ERROR;
+  strlcpy (fn_copy, file_name, PGSIZE);
+ // printf("\n\n\n Hereeeeeeeeeee %s.:%s.\n",fn_copy,file_name);
+  while( fn_copy[j] != ' ' && fn_copy[j] != NULL){
+     temp[j] = fn_copy[j];
+      //printf("\n\n IN WHILE: %d.:%c.\n",j,temp[j]);
+      j++;
+  }//end while
+  temp[j] = '\0';
+
+  //printf("\n\n Hereeeeeeeeeee in Load in heeeeeeeeeeeeeeeee: %s \n", temp );
+  file = filesys_open (temp);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -433,7 +453,7 @@ static bool
 setup_stack (void **esp, char* file_name) 
 {
 
-  
+  //printf("\n\n\nHereeeeeeeeeee in setup_stack.\n");
   uint8_t *kpage;
   
   bool success = false;
@@ -443,7 +463,7 @@ setup_stack (void **esp, char* file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   //strlcpy (fn_copy, "/bin/ls -l foo bar", PGSIZE);
-  strlcpy (fn_copy, "/bin/ls -l foo bar", PGSIZE);
+  strlcpy (fn_copy, file_name, PGSIZE);
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -463,13 +483,13 @@ setup_stack (void **esp, char* file_name)
         for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
              token = strtok_r (NULL, " ", &save_ptr)){
           //printf("aaaa            HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\n");
-          printf("\n\n\n\nesp: %x\n\n\n\n\n", *esp );
-              int length= (int) strlen(token);
+          //printf("\n\n\n\nesp: %x\n\n\n\n\n", *esp );
+              int length= (int) strlen(token)+1;
               total_len += length;
               int i;
-              for(i = 0 ; i < length ; i++){
+              for(i = length-1 ; i >= 0 ; i--){
                 (*(int *)esp)--;
-                printf("\nHEREEEEEEEEEEAAAA: %s and esp: %x\n\n\n",token,*esp);
+                //printf("\nHEREEEEEEEEEEAAAA: %s and esp: %x\n\n\n",token,*esp);
                 *(*((char **)esp)) = token[i];
               }
               
@@ -483,33 +503,34 @@ setup_stack (void **esp, char* file_name)
             *(*(uint8_t **)esp) =  (uint8_t) 0;
             total_len++;
         }
-        printf("\n\n %d and esp: %x\n\n\n",total_len,*esp);
+        //printf("\n\n %d and esp: %x\n\n\n",total_len,*esp);
         // 3 - put argv[4] ->0
-        *esp-=4;
+        (*(int *)esp) -= 4;
         *(*(char ***)esp) = (char*) 0;
 
         // 4 - put the addres of the arguments in the stack.
         int i;
         for( i = argc-1 ; i >= 0 ; i--){
-          *esp -= 4;
+          (*(int *)esp) -= 4;
           *(*(char ***)esp) = (char*) argv[i];
         }
 
         // 5 - put char** argv int the stack;
         int argv_0;
         argv_0 = (char *) *esp;
-        *esp -= 4;
+        (*(int *)esp) -= 4;
         *(*((char ***) esp)) = argv_0;
 
         // 6- put argc
-        *esp -= 4;
+        // *esp -= 4
+        (*(int *)esp) -= 4;
         *( *( (int **) esp ) ) = argc;
 
         // 7 - put return address = 0
-        *esp -= 4;
+        (*(int *)esp) -= 4;
         *( *( (int **) esp ) ) = 0;
 
-        printf("%d\n", *esp);
+        //printf("%x\n", *esp);
 
       }else
         palloc_free_page (kpage);
