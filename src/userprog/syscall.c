@@ -30,6 +30,7 @@ static int write (int fd, const void *buffer, unsigned size);
 static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 static void close (int fd);
+
 static void kill_process ();
 
 static struct lock sync_lock;
@@ -62,7 +63,7 @@ syscall_handler (struct intr_frame *f )
 	bool ptr_valid = check(esp);
 
 	if (!ptr_valid){
-		// Call exit passing 0
+		// Call exit passing -1
 		exit(-1);
 	}
 
@@ -99,44 +100,44 @@ syscall_handler (struct intr_frame *f )
 		case SYS_EXEC:
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
-			exec( (char *) arg_0);
+			f->eax = (uint32_t) exec( (char *) arg_0);
 
 			break;
 		case SYS_WAIT:
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
-			wait( (pid_t) arg_0);
+			f->eax = (uint32_t) wait( (pid_t) arg_0);
 
 			break;
 		case SYS_CREATE:
 
 			get_Args(esp  , 2 ,&arg_0 ,&arg_1 ,&arg_2);
-			create( (char *) arg_0, (unsigned) arg_1);
+			f->eax = (uint32_t) create( (char *) arg_0, (unsigned) arg_1);
 
 			break;		
 		case SYS_REMOVE:
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
-			remove( (char *) arg_0);
+			f->eax = (uint32_t) remove( (char *) arg_0);
 
 			break;
 		case SYS_OPEN:
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
-			open( (char *) arg_0);
+			f->eax = (uint32_t) open( (char *) arg_0);
 
 			break;
 		case SYS_FILESIZE:
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
-			filesize( (int) arg_0 );
+			f->eax = (uint32_t) filesize( (int) arg_0 );
 
 			break;
 		case SYS_READ:
 
 			get_Args(esp  , 3 ,&arg_0 ,&arg_1 ,&arg_2);
 			
-			read ( (int)arg_0, (void *) arg_1, (unsigned) arg_2 );
+			f->eax = (uint32_t) read ( (int)arg_0, (void *) arg_1, (unsigned) arg_2 );
 
 			break;
 		case SYS_WRITE:
@@ -146,7 +147,7 @@ syscall_handler (struct intr_frame *f )
 			//printf("\n Int: %d , const: %x , unsigned: %d \n", (int) arg_0 , 
 			//	(const void *) arg_1 , (unsigned) arg_2 );
 
-			write ( (int) arg_0, (const void *) arg_1, (unsigned) arg_2 );
+			f->eax = (uint32_t) write ( (int) arg_0, (const void *) arg_1, (unsigned) arg_2 );
 
 			break;
 		case SYS_SEEK:
@@ -158,7 +159,7 @@ syscall_handler (struct intr_frame *f )
 		case SYS_TELL:
 
 			get_Args(esp  , 1 ,&arg_0 ,&arg_1 ,&arg_2);
-			tell ( (int) arg_0 ) ;
+			f->eax = (uint32_t) tell ( (int) arg_0 ) ;
 
 			break;
 		case SYS_CLOSE:
@@ -245,6 +246,7 @@ remove (const char *file)
 
 static int
 open (const char *file){
+	printf("\n\nana hena ya john!!\n\n" );
 	//filesys_open(file);
 }//end function.
 
