@@ -35,7 +35,7 @@ static void kill_process ();
 
 static struct lock sync_lock;
 
-static bool check(void *esp);
+static void check(void *esp);
 static void 
 get_Args(void* esp , int args_count , void** arg_0, void ** arg_1 , void ** arg_2 );
 
@@ -202,11 +202,12 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
+	check(file);
 	// Aquire lock for acessing file system
 	lock_acquire ( &sync_lock);
 
 	// Call file system create
-	bool created_succ = filesys_create (file, (off_t) initial_size);
+	bool created_succ = filesys_create (file, initial_size);
 
 	// Release lock
 	lock_release ( &sync_lock );
@@ -257,14 +258,17 @@ open (const char *file){
 	}
 
 	struct thread* t = thread_current();
-	
+	struct file_map* new_file_map =
+    (struct file_map *) malloc (sizeof (struct file_map));
+     new_file_map->f = opened_file;
+
 	int i;
 	//i starts at 2 because 0 and  are reserved.
 	for( i = 2 ; i < 130 ; i++){
 		
 		if(t->map[i] == NULL){
 
-			struct file_map* new_file_map = { opened_file };
+			//struct file_map* new_file_map = { opened_file ,0};
 			t->map[i] = new_file_map;
 			ASSERT( t->map[i] != NULL );
 			//i is the value of fd.
@@ -280,39 +284,170 @@ open (const char *file){
 static int
 filesize (int fd)
 {
-
+       if( fd == NULL || fd < 0 || fd > 130 ||thread_current()->map[fd] == NULL  ){
+			kill_process();
+		}
+ 
+        struct thread * t = thread_current();
+ 
+        if(t->map[fd] == NULL)
+                return -1;
+ 
+        struct file * f = t->map[fd];
+ 
+        // Aquire lock for acessing file system
+        lock_acquire ( &sync_lock);
+ 
+        int size = file_length(f);
+ 
+        // Release lock
+        lock_release ( &sync_lock );
+ 
+        return size;
+ 
 }//end function.
-
+ 
 static int
 read (int fd, void *buffer, unsigned size)
 {
 
+        if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
+        	// printf("\n fd: %d\n",fd );
+			return 0;
+		}
+
+        check(buffer);
+ 
+        //fd =0 -> reads input from keyboard.
+        if(fd == 0){
+              return input_getc();
+        }
+ 
+        struct thread * t = thread_current();
+ 
+        struct file * f = t->map[fd]->f;
+ 
+        // Aquire lock for acessing file system
+        lock_acquire ( &sync_lock);
+ 
+        int bytes_read = read(f , buffer ,size);
+ 
+        // Release lock
+        lock_release ( &sync_lock );
+ 
+        return bytes_read;
 }//end function.
 
 static int 
 write (int fd, const void *buffer, unsigned size)
 {
+	check( buffer );
+
 	if( fd == 1 ){
 		putbuf (buffer, size);
+		return size;
 	}
+
+	if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
+		kill_process();
+	}
+	
+	if (!is_user_vaddr(fd))
+		kill_process();
+
+
+	struct thread *t = thread_current();
+	 struct file* pf = t->map[fd]->f;
+
+	lock_acquire( &sync_lock );
+	int x = (int) file_write( pf, buffer, size );
+	
+	lock_release( &sync_lock );
+	return  x;
+	//}//end else.
+
 }//end function.
 
 static void
 seek (int fd, unsigned position)
 {
-
+       
+       if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
+			kill_process();
+		}
+ 
+        // Check if position before the begining
+        if(position < 0)
+                kill_process();
+ 
+        // Aquire lock for acessing file system
+        lock_acquire ( &sync_lock);
+ 
+        // Now get the requested file
+        struct thread* t = thread_current();
+       
+        // File seek
+        file_seek (t->map[fd]->f, (off_t)position);
+        
+        // Release lock
+        lock_release ( &sync_lock );
+       
 }//end function.
-
+ 
 static unsigned
 tell (int fd)
 {
-
+       
+        if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
+			kill_process();
+		}
+ 
+        // Aquire lock for acessing file system
+        lock_acquire ( &sync_lock);
+ 
+        // Now get the requested file
+        struct thread* t = thread_current();
+       
+        // Because index resembles the fd , Checks the fd place
+        if (t->map[fd] != NULL){
+                // File seek
+                unsigned to_return = (unsigned)file_tell (t->map[fd]->f);
+                // Release lock
+                lock_release ( &sync_lock );
+ 
+                return to_return;
+        }
+ 
+        // The given fd is not taken
+        kill_process();
+ 
+ 
 }//end function.
-
-static void 
+ 
+static void
 close (int fd)
 {
+        // Check if file descriptor is in user address space
+ 		
+ 		struct thread * t = thread_current();
 
+ 		if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
+			kill_process();
+		}
+
+        // Aquire lock for acessing file system
+        lock_acquire ( &sync_lock);
+ 
+        // Now get the requested file
+ 
+        // Make the place indexed fd null
+        free( t->map[fd] );
+        t->map[fd] = NULL;
+	 	
+        // Release lock
+        lock_release ( &sync_lock );
+ 
+ 
 }//end function.
 
 
