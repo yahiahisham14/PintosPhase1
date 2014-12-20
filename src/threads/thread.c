@@ -15,6 +15,7 @@
 #include "userprog/process.h"
 #endif
 
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -36,6 +37,8 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+static void init_info(struct thread * t,tid_t tid);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -100,6 +103,31 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
 }
 
+/* Initialize metadata of current process */ 
+static void
+init_info (struct thread *t, tid_t tid)
+{
+  struct process_info *info = malloc (sizeof (struct process_info));
+  if (info == NULL)
+    thread_exit();
+
+  /* Initialize members */
+  sema_init (&info->sema_wait, 0);
+  sema_init (&info->sema_load, 0);
+  info->child_load_success = true;
+  info->pid = tid;
+  info->already_waited = false;
+  info->is_alive = true;
+  info->parent_alive = true;
+  info->exit_status = 0;
+
+  t->process_info = info;
+  if (t == initial_thread) return;
+
+  /* Push the metadata into the child_list of parent thread */
+  list_push_back (&t->parent_thread->child_list, &info->elem);
+}
+
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
@@ -107,6 +135,7 @@ thread_start (void)
 {
   /* Create the idle thread. */
   struct semaphore idle_started;
+  init_info (initial_thread, initial_thread->tid);
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
 
@@ -184,6 +213,9 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+  //------------------------------ADDED---------------------------------------
+  init_info (t, tid);
+
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
@@ -208,7 +240,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  // printf("int thread_create %d.\n", tid);
   return tid;
 }
 
@@ -298,6 +330,7 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -470,7 +503,20 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
-}
+
+  //-----------------------------_ADDED-----------------------------
+
+  // t->is_kernel = is_kernel;
+  if (t != initial_thread)
+    t->parent_thread = thread_current ();
+
+  /* Initialize file arrays */
+  // memset (t->array_files, 0, sizeof *(t->array_files));
+
+  list_init (&t->child_list);
+  // t->executable = NULL;
+
+}//end function.
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
@@ -581,6 +627,13 @@ allocate_tid (void)
 
   return tid;
 }
+
+int get_size(void){
+  
+  return list_size(&all_list);
+
+}
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

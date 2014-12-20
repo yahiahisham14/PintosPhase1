@@ -18,7 +18,7 @@ typedef int pid_t;
 static void syscall_handler (struct intr_frame *);
 
 static void halt (void);
-static void exit (int status);
+
 static pid_t exec ( const char *cmd_line );
 static int wait (pid_t pid);
 static bool create (const char *file, unsigned initial_size);
@@ -180,6 +180,8 @@ exit (int status)
 		i++;
 	}//end while
 	temp[i] = '\0';
+	struct thread *cur = thread_current ();
+  	cur->process_info->exit_status = status;
 	printf("%s: exit(%d)\n",temp, status );
 	thread_exit ();
 }//end function.
@@ -187,16 +189,28 @@ exit (int status)
 static pid_t
 exec ( const char *cmd_line )
 {
-	lock_acquire ( &sync_lock);
-	pid_t id = (pid_t) process_execute ( cmd_line );
-	lock_release ( &sync_lock );
-	return id;
+
+  pid_t pid = (pid_t) process_execute (cmd_line);
+
+  /* If pid allocation fails, exit -1 */
+  if (pid == -1) 
+    return -1;
+
+  /* Wait to receive message about child loading success */
+  struct thread* t = thread_current ();
+  sema_down (&t->process_info->sema_load);
+
+  if (t->process_info->child_load_success)
+      return pid;
+  else
+      return -1;
+
 }//end function
 
 static int
 wait (pid_t pid)
 {
-
+	return process_wait(pid);
 }//end function.
 
 static bool
@@ -528,3 +542,6 @@ kill_process(){
 	exit(-1);
 }//end function.
 
+void call_exit(int status){
+	exit(-1);
+}

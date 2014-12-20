@@ -18,8 +18,12 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-static thread_func start_process NO_RETURN;
+/* ADDED */
+#include "userprog/syscall.h"
+
+static thread_func start_process  NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void free_process_info (void);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -28,6 +32,10 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
+  /* ADDED*/
+  if (get_size() > 62)
+    call_exit(-1);
+
   char *fn_copy;
   tid_t tid;
 
@@ -61,11 +69,16 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+  struct thread* t = thread_current ();
+  t->parent_thread->process_info->child_load_success = success;
+  sema_up (&t->parent_thread->process_info->sema_load);
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success) {
+     t->process_info->exit_status = -1;
     thread_exit ();
-
+  }
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -85,14 +98,35 @@ start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
+
+   //process_wait (tid_t child_tid UNUSED) 
+
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid ) 
 {
-  int i;
-  for(i=0 ; i<2000000000;i++){
-  }
+  struct thread *cur = thread_current ();
+  struct list_elem *elem; 
+  struct process_info *child_info;
+  //printf("\n\n\nhereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
+  /* Scan the child_list, and look for the one that matches tid */
+  for (elem = list_begin (&cur->child_list); elem != list_end (&cur->child_list);
+    elem = list_next (elem))
+    {  
+      child_info = list_entry (elem, struct process_info, elem);
+      if (child_info->pid == child_tid)
+      {
+        if (child_info->already_waited)      /* If already waited, exit */
+          return -1;
+        child_info->already_waited = true;  
+        if (!child_info->is_alive)       /* If not alive, return status */
+          return child_info->exit_status;
+        else
+          sema_down (&child_info->sema_wait);/* Down the wait sema */
+        return child_info->exit_status;
+      }
+    }//end for.
   return -1;
-}
+}//end function.
 
 /* Free the current process's resources. */
 void
@@ -100,6 +134,22 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  // printf("in process_exit cur->tid: %d.\n",cur->tid);
+  int i;
+
+ /* If not kernel thread, print the exit message, update process metadata 
+     and free resources */
+  // if (!(cur->is_kernel))
+  if( cur->parent_thread != NULL )
+  {
+    // printf ("%s: exit(%d)\n", thread_name(), cur->process_info->exit_status);
+
+    cur->process_info->is_alive = false;
+    sema_up (&cur->process_info->sema_wait);
+    free_process_info ();
+  }
+
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -557,4 +607,43 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+
+//------------ ADDEDD-------------------------------------------------------------------------
+
+/* Free process metadata resources.
+   Process metadata is to be preserved for inspection by its parent process, 
+   after this process terminates. So we only free current process's metadata
+   if its parent process is not alive. 
+   Furthermore, we also need to free all the dead child processes' metadata, 
+   and informing its living child process that its parent is dead, so when 
+   the child process exits, it will free its process metadata. In this way, 
+   we can avoid memory leakage problem */
+static void
+free_process_info (void)
+{
+  struct thread *cur = thread_current ();
+  struct list_elem *elem; 
+  struct process_info *child_info;
+
+  /* Scan the child_list */
+  elem = list_begin (&cur->child_list);
+  while (elem != list_end (&cur->child_list))
+  {
+    child_info = list_entry (elem, struct process_info, elem);
+    elem = list_next (elem);
+
+    /* If child is alive, inform it that its parent process is dead, 
+       otherwise, free its metadata. */
+    if (child_info->is_alive == false)
+      free (child_info);
+    else 
+      child_info->parent_alive = false;
+  }
+
+  /* Free its own metadata if its parent process is dead */
+  if (!cur->process_info->parent_alive)
+    free (cur->process_info);
+  return;
 }

@@ -7,6 +7,11 @@
 
 // Added
 #include "filesys/file.h"
+#include "threads/synch.h"
+
+typedef int pid_t;
+#define PID_ERROR ((pid_t) -1)
+
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,9 +101,20 @@ struct thread
 //-------------------------------------------ADDED-----------------------------------------------------
     int64_t sleep_ticks;                /*time to sleep in ticks. */
 
+    /*array of children .*/
+    struct child* children[10];
+
+    //parent thread for current child.
+    struct thread *parent_thread;
+    bool is_kernel;     /* True if current thread is kernel 
+             thread. It's used for exit message */
+    struct list child_list;   /* Record thread's children */
+    struct process_info *process_info;  /* Process metadata */
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    struct file_map* map[130];           /*map to map the file to fd*/
+    struct file_map* map[130];          /*map to map the file to fd*/
+
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -116,6 +132,24 @@ struct thread
     // File
     struct file * f ;
     
+  };
+
+/* Metadata for process, which could be retrieved by parent process even
+   after the process exits. */
+struct process_info
+  {
+    struct semaphore sema_load;     /* Sema to ensure load order */
+    bool child_load_success;            /* Indicate success of loading 
+                                           executable file for child process */
+    struct semaphore sema_wait;   /* Sema to ensure wait order */
+    bool already_waited;    /* Whether the process has already been 
+             waited by its parent */
+    bool parent_alive;      /* Whether the parent process is alive*/
+    bool is_alive;      /* Whether the process is alive */
+    int exit_status;      /* Record exit status */
+    int pid;        /* Record the pid */
+    struct list_elem elem;    /* Element in child_list of its parent 
+             thread */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -153,5 +187,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+int get_size(void);
 
 #endif /* threads/thread.h */
