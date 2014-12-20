@@ -33,7 +33,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   /* ADDED*/
-  if (get_size() > 62)
+  if (get_size() >= 62)
     call_exit(-1);
 
   char *fn_copy;
@@ -133,6 +133,26 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+
+  /* Freeing array of file maps*/
+  int j = 2;
+  while(j < 130){
+
+    if(cur->map[j] != NULL){
+      // Close the file.
+      file_close(cur->map[j]->f);
+      // Free in case system call close haven't been called
+      free( cur->map[j] );
+    }
+    j++;
+  }
+
+  /* Freeing list of children (child list)*/
+  // free_process_info();
+
+  /* Close the excutable file */
+  file_close(cur->executable);
+
   uint32_t *pd;
 
   // printf("in process_exit cur->tid: %d.\n",cur->tid);
@@ -302,6 +322,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+    /* Sets the current thread excutable file to the opened file */
+    thread_current()->executable = file;
+    /* Sets the excutable to deny writing in it */
+    file_deny_write (thread_current()->executable);
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -384,8 +409,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   success = true;
 
  done:
-  /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  
   return success;
 }
 

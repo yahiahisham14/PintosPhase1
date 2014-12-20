@@ -18,7 +18,7 @@ typedef int pid_t;
 static void syscall_handler (struct intr_frame *);
 
 static void halt (void);
-
+static void exit (int status);
 static pid_t exec ( const char *cmd_line );
 static int wait (pid_t pid);
 static bool create (const char *file, unsigned initial_size);
@@ -189,6 +189,8 @@ exit (int status)
 static pid_t
 exec ( const char *cmd_line )
 {
+
+  check(cmd_line);
 
   pid_t pid = (pid_t) process_execute (cmd_line);
 

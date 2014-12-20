@@ -101,6 +101,9 @@ struct thread
 //-------------------------------------------ADDED-----------------------------------------------------
     int64_t sleep_ticks;                /*time to sleep in ticks. */
 
+    /* File pointer to save the executable file */
+    struct file* executable;
+
     /*array of children .*/
     struct child* children[10];
 
