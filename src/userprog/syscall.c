@@ -247,7 +247,7 @@ open (const char *file){
 	lock_acquire ( &sync_lock);
 	
 	// Open file
-	struct file * opened_file = filesys_open (file);
+	struct filesize * opened_file = filesys_open (file);
 
 	// Release lock
 	lock_release ( &sync_lock );
@@ -290,16 +290,16 @@ filesize (int fd)
  
         struct thread * t = thread_current();
  
-        if(t->map[fd] == NULL)
-                return -1;
+        // if(t->map[fd] == NULL)
+        //         return -1;
  
-        struct file * f = t->map[fd];
+        struct file * f = t->map[fd]->f;
  
         // Aquire lock for acessing file system
         lock_acquire ( &sync_lock);
  
         int size = file_length(f);
- 
+ 		//printf("filesize : %d\n",size );
         // Release lock
         lock_release ( &sync_lock );
  
@@ -309,32 +309,37 @@ filesize (int fd)
  
 static int
 read (int fd, void *buffer, unsigned size)
-{
+{	
+
+		check(buffer);
 
         if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
-        	// printf("\n fd: %d\n",fd );
-			return 0;
+			kill_process();
 		}
-
-        check(buffer);
- 
+ 	
         //fd =0 -> reads input from keyboard.
-        if(fd == 0){
-              return input_getc();
-        }
+	     if (fd == 0)       /* Read from input */
+	    {
+	    	int result = 0;
+	      unsigned i = 0;
+	      for (i = 0; i < size; i++)
+	        {
+	          *(uint8_t *)buffer = input_getc();
+	          result++;
+	          buffer++;
+	        }
+	        return result;
+	    }//end if.
  
         struct thread * t = thread_current();
  
-        struct file * f = t->map[fd]->f;
+        struct file * pf = t->map[fd]->f;
  
         // Aquire lock for acessing file system
         lock_acquire ( &sync_lock);
- 
-        int bytes_read = read(f , buffer ,size);
- 
+        int bytes_read = (int) file_read(pf , buffer ,size);
         // Release lock
         lock_release ( &sync_lock );
- 
         return bytes_read;
 }//end function.
 
@@ -396,8 +401,7 @@ seek (int fd, unsigned position)
  
 static unsigned
 tell (int fd)
-{
-       
+{	   
         if( fd == NULL || fd < 0 || fd > 129 ||thread_current()->map[fd] == NULL  ){
 			kill_process();
 		}
