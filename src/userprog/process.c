@@ -33,8 +33,8 @@ tid_t
 process_execute (const char *file_name) 
 {
   /* ADDED*/
-  if (get_size() >= 62)
-    call_exit(-1);
+  // if (get_size() >10)
+  //   call_exit(-1);
 
   char *fn_copy;
   tid_t tid;
@@ -107,7 +107,7 @@ process_wait (tid_t child_tid )
   struct thread *cur = thread_current ();
   struct list_elem *elem; 
   struct process_info *child_info;
-  //printf("\n\n\nhereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
+  // printf("\nhereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
   /* Scan the child_list, and look for the one that matches tid */
   for (elem = list_begin (&cur->child_list); elem != list_end (&cur->child_list);
     elem = list_next (elem))
@@ -142,7 +142,7 @@ process_exit (void)
       // Close the file.
       file_close(cur->map[j]->f);
       // Free in case system call close haven't been called
-      free( cur->map[j] );
+      // free( cur->map[j] );
     }
     j++;
   }

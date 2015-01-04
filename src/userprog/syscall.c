@@ -459,7 +459,7 @@ close (int fd)
         lock_acquire ( &sync_lock);
  
         // Now get the requested file
- 
+ 		file_close( t->map[fd]->f );
         // Make the place indexed fd null
         free( t->map[fd] );
         t->map[fd] = NULL;
